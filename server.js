@@ -4,7 +4,7 @@ const fetch = require("node-fetch");
 const app = express();
 const PORT = process.env.PORT || 10000;
 
-// ✅ TEST ROUTE (IMPORTANT)
+// ✅ TEST ROUTE
 app.get("/", (req, res) => {
   res.send("Auditly Pro is LIVE 🚀");
 });
@@ -46,6 +46,8 @@ app.get("/auth/callback", async (req, res) => {
     });
 
     const data = await response.json();
+
+    console.log("Access token:", data.access_token);
 
     res.send("✅ App successfully installed!");
   } catch (error) {

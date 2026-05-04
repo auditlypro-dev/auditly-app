@@ -1,7 +1,6 @@
 {
-  "name": "auditly-app",
+  "name": "auditly-pro",
   "version": "1.0.0",
-  "description": "Auditly Shopify App Backend",
   "main": "server.js",
   "scripts": {
     "start": "node server.js"

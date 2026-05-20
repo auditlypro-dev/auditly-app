@@ -31,8 +31,7 @@ app.get("/auth", (req, res) => {
 }
   res.sendFile(
     path.join(__dirname, "frontend/dist/index.html")
-  );
-});const redirectUrl =
+  );const redirectUrl =
     `https://${shop}/admin/oauth/authorize?client_id=${process.env.SHOPIFY_API_KEY}` +
     `&scope=read_products,write_products` +
     `&redirect_uri=${process.env.HOST}/auth/callback`;

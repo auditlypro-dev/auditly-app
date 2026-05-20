@@ -27,9 +27,12 @@ app.get("/", (req, res) => {
 // --------------------
 app.get("/auth", (req, res) => {
   const shop = req.query.shop;
-  if (!shop) return res.status(400).send("Missing shop param");
-
-  const redirectUrl =
+  if (!shop) return res.redirect("/auth");
+}
+  res.sendFile(
+    path.join(__dirname, "frontend/dist/index.html")
+  );
+});const redirectUrl =
     `https://${shop}/admin/oauth/authorize?client_id=${process.env.SHOPIFY_API_KEY}` +
     `&scope=read_products,write_products` +
     `&redirect_uri=${process.env.HOST}/auth/callback`;

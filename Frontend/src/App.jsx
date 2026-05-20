@@ -1,30 +1,69 @@
-import { Page, Card, Text, Button, BlockStack } from "@shopify/polaris";
+import { useEffect, useState } from "react";
+import {
+  Page,
+  Card,
+  Text,
+  Button,
+  BlockStack,
+  Badge
+} from "@shopify/polaris";
 
 export default function App() {
+
+  const [shop, setShop] = useState("");
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    setShop(params.get("shop"));
+  }, []);
+
+  async function runScan() {
+
+    const res = await fetch(`/api/scan?shop=${shop}`);
+    const data = await res.json();
+
+    alert(`Score: ${data.score}`);
+  }
+
   return (
     <Page title="Auditly Pro">
-      <BlockStack gap="400">
+
+      <BlockStack gap="500">
 
         <Card>
-          <Text variant="headingLg" as="h2">
-            Compliance Dashboard
-          </Text>
+          <BlockStack gap="300">
 
-          <Text>
-            Scan your Shopify store for compliance issues.
-          </Text>
+            <Text variant="headingLg">
+              Auditly Pro Dashboard
+            </Text>
 
-          <Button primary>
-            Run Scan
-          </Button>
+            <Badge tone="success">
+              Embedded Active
+            </Badge>
+
+            <Text>
+              Store: {shop}
+            </Text>
+
+            <Button primary onClick={runScan}>
+              Run Compliance Scan
+            </Button>
+
+          </BlockStack>
         </Card>
 
         <Card>
-          <Text variant="headingMd">Store Health</Text>
-          <Text variant="heading2xl">94%</Text>
+          <Text variant="headingMd">
+            SaaS Status
+          </Text>
+
+          <Text variant="heading2xl">
+            $27/month Active Model Ready
+          </Text>
         </Card>
 
       </BlockStack>
+
     </Page>
   );
 }

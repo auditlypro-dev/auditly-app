@@ -1,58 +1,112 @@
 import express from "express";
-import cors from "cors";
-import path from "path";
-import { fileURLToPath } from "url";
 import dotenv from "dotenv";
+import session from "express-session";
+import cookieParser from "cookie-parser";
+import cors from "cors";
+import fetch from "node-fetch";
 
 dotenv.config();
 
 const app = express();
-const PORT = process.env.PORT || 10000;
+const PORT = process.env.PORT || 3000;
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-
+// =======================
+// Middleware
+// =======================
 app.use(cors());
 app.use(express.json());
+app.use(cookieParser());
 
-// --------------------
-// BASIC HEALTH CHECK
-// --------------------
+app.use(
+  session({
+    secret: process.env.SESSION_SECRET || "supersecret",
+    resave: false,
+    saveUninitialized: false,
+  })
+);
+
+// =======================
+// Health Check Route
+// =======================
 app.get("/", (req, res) => {
-  res.send("Auditly Pro Backend Running 🚀");
+  res.send("Auditly Pro server is running 🚀");
 });
 
-// --------------------
-// SHOPIFY AUTH PLACEHOLDER (we expand later)
-// --------------------
+// =======================
+// Shopify OAuth Start
+// =======================
 app.get("/auth", (req, res) => {
   const shop = req.query.shop;
-  if (!shop) return res.redirect("/auth");
-}
-  res.sendFile(
-    path.join(__dirname, "frontend/dist/index.html")
-  );const redirectUrl =
-    `https://${shop}/admin/oauth/authorize?client_id=${process.env.SHOPIFY_API_KEY}` +
-    `&scope=read_products,write_products` +
-    `&redirect_uri=${process.env.HOST}/auth/callback`;
 
-  res.redirect(redirectUrl);
+  if (!shop) {
+    return res.status(400).send("Missing shop parameter");
+  }
+
+  const installUrl =
+    `https://${shop}/admin/oauth/authorize?` +
+    `client_id=${process.env.SHOPIFY_API_KEY}&` +
+    `scope=${process.env.SHOPIFY_SCOPES}&` +
+    `redirect_uri=${process.env.SHOPIFY_REDIRECT_URI}`;
+
+  res.redirect(installUrl);
 });
 
-app.get("/auth/callback", (req, res) => {
-  res.send("OAuth callback working ✅ (next step: token exchange)");
+// =======================
+// OAuth Callback
+// =======================
+app.get("/auth/callback", async (req, res) => {
+  const { shop, code } = req.query;
+
+  if (!shop || !code) {
+    return res.status(400).send("Missing required parameters");
+  }
+
+  try {
+    const response = await fetch(
+      `https://${shop}/admin/oauth/access_token`,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          client_id: process.env.SHOPIFY_API_KEY,
+          client_secret: process.env.SHOPIFY_API_SECRET,
+          code,
+        }),
+      }
+    );
+
+    const data = await response.json();
+
+    req.session.accessToken = data.access_token;
+    req.session.shop = shop;
+
+    // Redirect into embedded app
+    res.redirect(`/?shop=${shop}`);
+  } catch (error) {
+    console.error("OAuth error:", error);
+    res.status(500).send("OAuth failed");
+  }
 });
 
-// --------------------
-// SERVE FRONTEND BUILD
-// --------------------
-app.use(express.static(path.join(__dirname, "frontend/dist")));
+// =======================
+// Example Protected API Route
+// =======================
+app.get("/api/data", (req, res) => {
+  if (!req.session.accessToken) {
+    return res.status(401).send("Not authenticated");
+  }
 
-app.get("*", (req, res) => {
-  res.sendFile(path.join(__dirname, "frontend/dist/index.html"));
+  res.json({
+    message: "Secure data from Auditly Pro",
+    shop: req.session.shop,
+  });
 });
 
-// --------------------
+// =======================
+// Start Server
+// =======================
 app.listen(PORT, () => {
-  console.log(`Auditly Pro running on port ${PORT}`);
+  console.log(`Server running on port ${PORT}`);
 });

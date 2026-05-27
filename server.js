@@ -33,9 +33,12 @@ app.get("/", (req, res) => {
   res.send("Auditly Pro Server Running 🚀");
 });
 
+// ------------------
+
 // --------------------
-// SHOPIFY INSTALL / OAUTH START
+// OAUTH CALLBACK
 // --------------------
+
 app.get("/auth", (req, res) => {
   const shop = req.query.shop;
 
@@ -43,27 +46,14 @@ app.get("/auth", (req, res) => {
     return res.status(400).send("Missing shop parameter");
   }
 
-  const redirectUri = `${process.env.HOST}/auth/callback`;
-
-  const installUrl =
+  const redirectUrl =
     `https://${shop}/admin/oauth/authorize` +
     `?client_id=${process.env.SHOPIFY_API_KEY}` +
     `&scope=${process.env.SCOPES}` +
-    `&redirect_uri=${redirectUri}`;
+    `&redirect_uri=${process.env.HOST}/auth/callback`;
 
-  res.redirect(installUrl);
+  res.redirect(redirectUrl);
 });
-
-// --------------------
-// OAUTH CALLBACK
-// --------------------
-app.get("/auth/callback", (req, res) => {
-  const { shop, code } = req.query;
-
-  if (!shop || !code) {
-    return res.status(400).send("Missing OAuth parameters");
-  }
-
   // TEMP SESSION STORAGE (replace with DB later)
   storeSessions[shop] = {
     accessToken: "pending",

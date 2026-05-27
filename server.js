@@ -1,43 +1,49 @@
 import express from "express";
-import cors from "cors";
 import dotenv from "dotenv";
-import path from "path";
-import { fileURLToPath } from "url";
+import cors from "cors";
+import fetch from "node-fetch";
 
 dotenv.config();
 
 const app = express();
-const PORT = process.env.PORT || 10000;
 
-// --------------------
-// FIX __dirname (ESM safe)
-// --------------------
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-
-// --------------------
-// MIDDLEWARE
-// --------------------
 app.use(cors());
 app.use(express.json());
 
-// --------------------
-// SIMPLE IN-MEMORY STORE (temporary)
-// --------------------
-const storeSessions = {};
+const PORT = process.env.PORT || 10000;
 
-// --------------------
-// HEALTH CHECK
-// --------------------
+const {
+  SHOPIFY_API_KEY,
+  SHOPIFY_API_SECRET,
+  SCOPES,
+  HOST,
+} = process.env;
+
+/*
+========================================
+HEALTH CHECK
+========================================
+*/
+
 app.get("/", (req, res) => {
-  res.send("Auditly Pro Server Running 🚀");
+  res.send(`
+    <html>
+      <head>
+        <title>Auditly Pro</title>
+      </head>
+      <body style="font-family:sans-serif;padding:40px;">
+        <h1>🚀 Auditly Pro Server Running</h1>
+        <p>Shopify Compliance & Optimization Platform</p>
+      </body>
+    </html>
+  `);
 });
 
-// ------------------
-
-// --------------------
-// OAUTH CALLBACK
-// --------------------
+/*
+========================================
+SHOPIFY INSTALL ROUTE
+========================================
+*/
 
 app.get("/auth", (req, res) => {
   const shop = req.query.shop;
@@ -46,103 +52,128 @@ app.get("/auth", (req, res) => {
     return res.status(400).send("Missing shop parameter");
   }
 
-  const redirectUrl =
+  // basic validation
+  if (!shop.endsWith(".myshopify.com")) {
+    return res.status(400).send("Invalid shop");
+  }
+
+  const redirectUri = `${HOST}/auth/callback`;
+
+  const installUrl =
     `https://${shop}/admin/oauth/authorize` +
-    `?client_id=${process.env.SHOPIFY_API_KEY}` +
-    `&scope=${process.env.SCOPES}` +
-    `&redirect_uri=${process.env.HOST}/auth/callback`;
+    `?client_id=${SHOPIFY_API_KEY}` +
+    `&scope=${SCOPES}` +
+    `&redirect_uri=${encodeURIComponent(redirectUri)}`;
 
-  res.redirect(redirectUrl);
-});
-  // TEMP SESSION STORAGE (replace with DB later)
-  storeSessions[shop] = {
-    accessToken: "pending",
-    billingActive: false
-  };
+  console.log("SHOP INSTALL URL:");
+  console.log(installUrl);
 
-  // redirect to billing step
-  res.redirect(`/billing?shop=${shop}`);
+  res.redirect(installUrl);
 });
 
-// --------------------
-// BILLING ROUTE (SAFE VERSION)
-// --------------------
+/*
+========================================
+SHOPIFY OAUTH CALLBACK
+========================================
+*/
+
+app.get("/auth/callback", async (req, res) => {
+  try {
+    const { shop, code } = req.query;
+
+    if (!shop || !code) {
+      return res.status(400).send("Missing required parameters");
+    }
+
+    const tokenResponse = await fetch(
+      `https://${shop}/admin/oauth/access_token`,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          client_id: SHOPIFY_API_KEY,
+          client_secret: SHOPIFY_API_SECRET,
+          code,
+        }),
+      }
+    );
+
+    const tokenData = await tokenResponse.json();
+
+    console.log("SHOPIFY TOKEN RESPONSE:");
+    console.log(tokenData);
+
+    if (!tokenData.access_token) {
+      return res.status(500).send("Failed to retrieve access token");
+    }
+
+    const accessToken = tokenData.access_token;
+
+    /*
+    ========================================
+    STORE TOKEN HERE (DB LATER)
+    ========================================
+    */
+
+    console.log("ACCESS TOKEN:");
+    console.log(accessToken);
+
+    /*
+    ========================================
+    REDIRECT TO EMBEDDED APP
+    ========================================
+    */
+
+    res.redirect(`/?shop=${shop}`);
+  } catch (error) {
+    console.error("AUTH CALLBACK ERROR:");
+    console.error(error);
+
+    res.status(500).send("OAuth callback failed");
+  }
+});
+
+/*
+========================================
+BILLING PLACEHOLDER
+========================================
+*/
+
 app.get("/billing", (req, res) => {
-  const shop = req.query.shop;
-
-  if (!shop) {
-    return res.status(400).send("Missing shop parameter");
-  }
-
-  // Founder bypass (your store)
-  if (shop.includes("voltridge")) {
-    storeSessions[shop].billingActive = true;
-    return res.redirect(`/app?shop=${shop}`);
-  }
-
-  // TEMP: simulate billing approval
-  // (real Shopify billing API will replace this next step)
-  storeSessions[shop].billingActive = true;
-
-  res.redirect(`/app?shop=${shop}`);
+  res.send("Billing endpoint coming soon 🚀");
 });
 
-// --------------------
-// BILLING PROTECTION MIDDLEWARE
-// --------------------
-function requireBilling(req, res, next) {
-  const shop = req.query.shop;
+/*
+========================================
+API TEST ROUTE
+========================================
+*/
 
-  if (!shop || !storeSessions[shop]) {
-    return res.redirect("/auth");
-  }
-
-  if (!storeSessions[shop].billingActive) {
-    return res.redirect(`/billing?shop=${shop}`);
-  }
-
-  next();
-}
-
-// --------------------
-// EMBEDDED APP DASHBOARD
-// --------------------
-app.get("/app", requireBilling, (req, res) => {
-  res.sendFile(path.join(__dirname, "frontend/dist/index.html"));
-});
-
-// --------------------
-// API: COMPLIANCE SCAN (SIMPLE VERSION)
-// --------------------
-app.get("/api/scan", requireBilling, (req, res) => {
+app.get("/api/status", (req, res) => {
   res.json({
     success: true,
-    score: 92,
-    issues: [
-      "Missing privacy policy",
-      "SEO title missing on homepage",
-      "No refund policy detected"
-    ],
-    recommendations: [
-      "Add privacy policy page",
-      "Improve homepage SEO metadata",
-      "Add refund/return policy"
-    ]
+    app: "Auditly Pro",
+    status: "running",
   });
 });
 
-// --------------------
-// SERVE FRONTEND (React build)
-// --------------------
-app.use(express.static(path.join(__dirname, "frontend/dist")));
+/*
+========================================
+START SERVER
+========================================
+*/
 
-app.get("*", (req, res) => {
-  res.sendFile(path.join(__dirname, "frontend/dist/index.html"));
-});
-
-// --------------------
-// START SERVER
-// --------------------
 app.listen(PORT, () => {
-  console.log(`Auditly Pro running on port ${PORT}`);
+  console.log(`
+========================================
+🚀 Auditly Pro Running
+========================================
+
+PORT: ${PORT}
+HOST: ${HOST}
+
+========================================
+`);
 });

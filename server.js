@@ -2,17 +2,8 @@ import express from "express";
 import dotenv from "dotenv";
 import cors from "cors";
 
-dotenv.config();import express from "express";
-import dotenv from "dotenv";
-import cors from "cors";
-
-dotenv.config();
-
-console.log("API KEY EXISTS:", !!process.env.SHOPIFY_API_KEY);
+dotenv.config();console.log("API KEY EXISTS:", !!process.env.SHOPIFY_API_KEY);
 console.log("HOST:", process.env.HOST);
-
-const app = express();
-
 const app = express();
 
 app.use(cors());

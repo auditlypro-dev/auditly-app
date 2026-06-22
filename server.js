@@ -6,10 +6,9 @@ dotenv.config();
 
 /*
 ========================================
-DEBUG OUTPUT
+STARTUP DEBUG
 ========================================
 */
-
 console.log("========================================");
 console.log("AUDITLY PRO STARTUP DEBUG");
 console.log("========================================");
@@ -20,45 +19,6 @@ console.log("SCOPES:", process.env.SCOPES);
 console.log("========================================");
 
 const app = express();
-
-app.use(cors());
-app.use(express.json());
-
-const PORT = process.env.PORT || 10000;
-
-const {
-  SHOPIFY_API_KEY,
-  SHOPIFY_API_SECRET,
-  SCOPES,
-  HOST,
-} = process.env;
-========================================
-DEBUG OUTPUT
-========================================
-*/
-
-console.log("========================================");
-console.log("AUDITLY PRO STARTUP DEBUG");
-console.log("========================================");
-console.log("API KEY EXISTS:", !!process.env.SHOPIFY_API_KEY);
-console.log("API SECRET EXISTS:", !!process.env.SHOPIFY_API_SECRET);
-console.log("HOST:", process.env.HOST);
-console.log("SCOPES:", process.env.SCOPES);
-console.log("========================================");
-
-const app = express();
-
-app.use(cors());
-app.use(express.json());
-
-const PORT = process.env.PORT || 10000;
-
-const {
-  SHOPIFY_API_KEY,
-  SHOPIFY_API_SECRET,
-  SCOPES,
-  HOST,
-} = process.env;
 
 app.use(cors());
 app.use(express.json());
@@ -77,7 +37,6 @@ const {
 HEALTH CHECK
 ========================================
 */
-
 app.get("/", (req, res) => {
   res.send(`
     <html>
@@ -94,18 +53,14 @@ app.get("/", (req, res) => {
 
 /*
 ========================================
-SHOPIFY INSTALL ROUTE
+SHOPIFY AUTH
 ========================================
 */
-
 app.get("/auth", (req, res) => {
   const shop = req.query.shop;
 
-  if (!shop) {
-    return res.status(400).send("Missing shop parameter");
-  }
+  if (!shop) return res.status(400).send("Missing shop parameter");
 
-  // basic validation
   if (!shop.endsWith(".myshopify.com")) {
     return res.status(400).send("Invalid shop");
   }
@@ -118,18 +73,16 @@ app.get("/auth", (req, res) => {
     `&scope=${SCOPES}` +
     `&redirect_uri=${encodeURIComponent(redirectUri)}`;
 
-  console.log("SHOP INSTALL URL:");
-  console.log(installUrl);
+  console.log("INSTALL URL:", installUrl);
 
   res.redirect(installUrl);
 });
 
 /*
 ========================================
-SHOPIFY OAUTH CALLBACK
+OAUTH CALLBACK
 ========================================
 */
-
 app.get("/auth/callback", async (req, res) => {
   try {
     const { shop, code } = req.query;
@@ -142,9 +95,7 @@ app.get("/auth/callback", async (req, res) => {
       `https://${shop}/admin/oauth/access_token`,
       {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           client_id: SHOPIFY_API_KEY,
           client_secret: SHOPIFY_API_SECRET,
@@ -155,55 +106,26 @@ app.get("/auth/callback", async (req, res) => {
 
     const tokenData = await tokenResponse.json();
 
-    console.log("SHOPIFY TOKEN RESPONSE:");
-    console.log(tokenData);
-
     if (!tokenData.access_token) {
+      console.error("TOKEN ERROR:", tokenData);
       return res.status(500).send("Failed to retrieve access token");
     }
 
-    const accessToken = tokenData.access_token;
-
-    /*
-    ========================================
-    STORE TOKEN HERE (DB LATER)
-    ========================================
-    */
-
-    console.log("ACCESS TOKEN:");
-    console.log(accessToken);
-
-    /*
-    ========================================
-    REDIRECT TO EMBEDDED APP
-    ========================================
-    */
+    console.log("ACCESS TOKEN RECEIVED");
+    console.log(tokenData.access_token);
 
     res.redirect(`/?shop=${shop}`);
-  } catch (error) {
-    console.error("AUTH CALLBACK ERROR:");
-    console.error(error);
-
+  } catch (err) {
+    console.error("AUTH CALLBACK ERROR:", err);
     res.status(500).send("OAuth callback failed");
   }
 });
 
 /*
 ========================================
-BILLING PLACEHOLDER
+API STATUS
 ========================================
 */
-
-app.get("/billing", (req, res) => {
-  res.send("Billing endpoint coming soon 🚀");
-});
-
-/*
-========================================
-API TEST ROUTE
-========================================
-*/
-
 app.get("/api/status", (req, res) => {
   res.json({
     success: true,
@@ -214,19 +136,25 @@ app.get("/api/status", (req, res) => {
 
 /*
 ========================================
+BILLING PLACEHOLDER
+========================================
+*/
+app.get("/billing", (req, res) => {
+  res.send("Billing endpoint coming soon 🚀");
+});
+
+/*
+========================================
 START SERVER
 ========================================
 */
-
 app.listen(PORT, () => {
   console.log(`
 ========================================
 🚀 Auditly Pro Running
 ========================================
-
 PORT: ${PORT}
 HOST: ${HOST}
-
 ========================================
 `);
 });

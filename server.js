@@ -55,48 +55,67 @@ app.get("/", (req, res) => {
 ========================================
 SHOPIFY AUTH
 ========================================
-*/
-app.get("/auth", (req, res) => {
-  const shop = req.query.shop;
+*/app.get("/auth", (req, res) => {
+  const { shop } = req.query;
 
-  if (!shop) return res.status(400).send("Missing shop parameter");
-
-  if (!shop.endsWith(".myshopify.com")) {
-    return res.status(400).send("Invalid shop");
+  if (!shop) {
+    return res.status(400).send("Missing shop parameter");
   }
 
-  const redirectUri = `${HOST}/auth/callback`;
+  const state = Math.random().toString(36).substring(2, 15);
 
   const installUrl =
     `https://${shop}/admin/oauth/authorize` +
     `?client_id=${SHOPIFY_API_KEY}` +
     `&scope=${SCOPES}` +
-    `&redirect_uri=${encodeURIComponent(redirectUri)}`;
-
-  console.log("INSTALL URL:", installUrl);
+    `&state=${state}` +
+    `&redirect_uri=${HOST}/auth/callback`;
 
   res.redirect(installUrl);
 });
 
+
 /*
-========================================
-OAUTH CALLBACK
 ========================================
 */
 app.get("/auth/callback", async (req, res) => {
   try {
     const { shop, code, hmac, state } = req.query;
 
+    // 1. Validate required params
     if (!shop || !code || !hmac || !state) {
-      console.error("Missing params:", req.query);
+      console.error("Missing OAuth params:", req.query);
       return res.status(400).send("Missing required parameters");
     }
 
+    // 2. Validate env vars
     if (!SHOPIFY_API_KEY || !SHOPIFY_API_SECRET) {
-      console.error("Missing API credentials in env");
-      return res.status(500).send("Server misconfigured (missing API keys)");
+      console.error("Missing Shopify credentials in env");
+      return res.status(500).send("Server misconfigured");
     }
 
+    // 3. OPTIONAL BUT IMPORTANT: verify HMAC (security)
+    const crypto = await import("crypto");
+
+    const map = { ...req.query };
+    delete map.hmac;
+
+    const message = Object.keys(map)
+      .sort()
+      .map((key) => `${key}=${map[key]}`)
+      .join("&");
+
+    const generatedHash = crypto
+      .createHmac("sha256", SHOPIFY_API_SECRET)
+      .update(message)
+      .digest("hex");
+
+    if (generatedHash !== hmac) {
+      console.error("HMAC validation failed");
+      return res.status(401).send("Invalid HMAC signature");
+    }
+
+    // 4. Exchange code for access token
     const tokenResponse = await fetch(
       `https://${shop}/admin/oauth/access_token`,
       {
@@ -113,16 +132,22 @@ app.get("/auth/callback", async (req, res) => {
     const tokenData = await tokenResponse.json();
 
     if (!tokenData.access_token) {
-      console.error("TOKEN ERROR:", tokenData);
+      console.error("Token error:", tokenData);
       return res.status(500).send("Failed to retrieve access token");
     }
 
     console.log("ACCESS TOKEN RECEIVED:", tokenData.access_token);
 
+    // 5. STORE TOKEN (temporary in memory for now)
+    global.shopTokens = global.shopTokens || {};
+    global.shopTokens[shop] = tokenData.access_token;
+
+    // 6. Redirect to app
     res.redirect(`/?shop=${shop}`);
+
   } catch (err) {
-    console.error("AUTH CALLBACK ERROR:", err);
-    res.status(500).send("OAuth callback failed");
+    console.error("OAuth callback error:", err);
+    res.status(500).send("OAuth failed");
   }
 });
 

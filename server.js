@@ -85,10 +85,16 @@ OAUTH CALLBACK
 */
 app.get("/auth/callback", async (req, res) => {
   try {
-    const { shop, code } = req.query;
+    const { shop, code, hmac, state } = req.query;
 
-    if (!shop || !code) {
+    if (!shop || !code || !hmac || !state) {
+      console.error("Missing params:", req.query);
       return res.status(400).send("Missing required parameters");
+    }
+
+    if (!SHOPIFY_API_KEY || !SHOPIFY_API_SECRET) {
+      console.error("Missing API credentials in env");
+      return res.status(500).send("Server misconfigured (missing API keys)");
     }
 
     const tokenResponse = await fetch(
@@ -111,8 +117,7 @@ app.get("/auth/callback", async (req, res) => {
       return res.status(500).send("Failed to retrieve access token");
     }
 
-    console.log("ACCESS TOKEN RECEIVED");
-    console.log(tokenData.access_token);
+    console.log("ACCESS TOKEN RECEIVED:", tokenData.access_token);
 
     res.redirect(`/?shop=${shop}`);
   } catch (err) {

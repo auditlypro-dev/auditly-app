@@ -4,10 +4,34 @@ import cors from "cors";
 
 dotenv.config();
 
+/*
+========================================
+DEBUG OUTPUT
+========================================
+*/
+
+console.log("========================================");
+console.log("AUDITLY PRO STARTUP DEBUG");
+console.log("========================================");
 console.log("API KEY EXISTS:", !!process.env.SHOPIFY_API_KEY);
+console.log("API SECRET EXISTS:", !!process.env.SHOPIFY_API_SECRET);
 console.log("HOST:", process.env.HOST);
+console.log("SCOPES:", process.env.SCOPES);
+console.log("========================================");
 
 const app = express();
+
+app.use(cors());
+app.use(express.json());
+
+const PORT = process.env.PORT || 10000;
+
+const {
+  SHOPIFY_API_KEY,
+  SHOPIFY_API_SECRET,
+  SCOPES,
+  HOST,
+} = process.env;
 
 app.use(cors());
 app.use(express.json());

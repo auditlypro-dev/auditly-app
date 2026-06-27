@@ -74,6 +74,7 @@ console.log("Shop:", req.query.shop);
     `&redirect_uri=${HOST}/auth/callback`;
 
   res.redirect(installUrl);
+  console.log("Redirect URL:", installUrl);
 });
 
 

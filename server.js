@@ -56,6 +56,8 @@ app.get("/", (req, res) => {
 SHOPIFY AUTH
 ========================================
 */app.get("/auth", (req, res) => {
+  console.log("✅ AUTH ROUTE HIT");
+console.log("Shop:", req.query.shop);
   const { shop } = req.query;
 
   if (!shop) {
